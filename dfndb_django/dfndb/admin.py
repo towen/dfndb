@@ -6,5 +6,5 @@ from .models import *
 
 
 admin.site.register([
-    Paper,Compound,CompositionPart, Material
+    Paper,Compound,CompositionPart, Material, Method, QuantityUnit, Parameter, Data
     ], admin.ModelAdmin)

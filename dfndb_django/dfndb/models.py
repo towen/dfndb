@@ -3,9 +3,21 @@ import idutils # for DOI validation: https://idutils.readthedocs.io/en/latest/
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import MaxValueValidator, MinValueValidator
+from django.contrib.auth import get_user_model
 import datetime
 
 # Create your models here.
+
+# any model can inherit this one to add these columns
+class BaseModel(models.Model):
+   name =  models.CharField(max_length=100, unique=True)
+   owner = models.ForeignKey(get_user_model(), on_delete=models.SET_NULL, null=True, blank=True)
+   created_on = models.DateField(auto_now_add=True)
+   accepted = models.BooleanField(default=False)
+   class Meta:
+      abstract=True  # this tells Django not to create a table for this model - it's an abstract base class
+   def __str__(self):
+      return self.name
 
 class DOIField(models.CharField):
    description = "Digital Object Identifier (DOI)"
@@ -32,21 +44,22 @@ class YearField(models.IntegerField):
       if (value < 1791 or value > datetime.date.today().year):
          raise ValidationError("Invalid year")
 
-# over-normalisation, don't need a full contact info DB
+# I think this would be unnecessary for now - we don't need a full contact info DB!
 #class Person(models.Model):
-#   name = models.CharField()
-   
+#   first_name = models.CharField()
+#   last_name  = models.CharField()
+#   institution = models.ForteignKey( ... )
+
 class Paper(models.Model):
-  DOI = DOIField(null=False, unique=True)
+  DOI = DOIField(unique=True)  # use our custom DOI field
   paper_tag = models.SlugField(max_length=100, unique=True)  # SlugField is a CharField with validation, like my DOIField
   year = YearField(default=datetime.date.today().year)
   title = models.CharField(max_length=300)
-  #authors = models.ManyToManyField(
+  #authors = models.ManyToManyField(Person) # no - see above
   authors = models.CharField(max_length=500)
-  url = models.URLField(null=True, blank=True)
+  url = models.URLField(null=True, blank=True) # blank=true means not a required field in forms. null=True means don't set NOT NULL in SQL
   created_on = models.DateField(auto_now_add=True)
-  accepted = models.BooleanField(default=False)
-
+  accepted = models.BooleanField(default=False)  
   def __str__(self):
     return self.paper_tag
 
@@ -67,13 +80,53 @@ class CompositionPart(models.Model):
   def __str__(self):
     return "%s%d"%(self.compound.formula,self.amount)
 
-class Material(models.Model):
-  name =  models.CharField(max_length=100, unique=True)
+class Material(BaseModel):
   composition = models.ManyToManyField(CompositionPart)
   polymer = models.IntegerField(default=0,validators=[MinValueValidator(0)])
-  created_on = models.DateField(auto_now_add=True)
-  accepted = models.BooleanField(default=False)
   def __str__(self):
     return self.name
 
+class Method(BaseModel):
+  # what does the 'method class' do??
+  # in any case it's a bad idea to have something called class, it gets confusing
+  # Using 'choices' will cause Django to use multiple choice validators & drop down menus
+  # see: https://docs.djangoproject.com/en/3.1/ref/models/fields/#choices
+  METHOD_TYPE_CHOICES = [
+    (1, 'MethodType1'),
+    (2, 'MethodType2'),
+  ]
+  type = models.IntegerField(choices=METHOD_TYPE_CHOICES)
+  description =  models.TextField(blank=True)
 
+class QuantityUnit(models.Model):
+  name = name = models.CharField(max_length=100, unique=True) # Voltage
+  symbol = models.CharField(max_length=40, unique=True)  # V
+  symbolName = models.CharField(max_length=40, blank=True) # Volts
+  def __str__(self):
+    return "%s/%s"%(self.name,self.symbol)
+
+class Parameter(BaseModel):
+  symbol = models.CharField(max_length=40, unique=True)
+  PARAM_TYPE_CHOICES = [
+    (1, 'ParamType1'),
+    (2, 'ParamType2'),
+  ]
+  type = models.IntegerField(choices=PARAM_TYPE_CHOICES)
+  unit = models.ForeignKey(QuantityUnit, blank=True, null=True, on_delete=models.SET_NULL)
+  notes = models.TextField(blank=True)
+  def __str__(self):
+    return "%s: %s"%(self.name,self.symbol)
+
+class Data(BaseModel):
+  paper = models.ForeignKey(Paper, on_delete=models.CASCADE)
+  parameter = models.ForeignKey(Parameter, on_delete=models.CASCADE)
+  material = models.ForeignKey(Material, on_delete=models.CASCADE)
+  DATA_TYPE_CHOICES = [
+    (1, 'DataType1'),  
+    (2, 'DataType2'),
+  ]
+  type = models.IntegerField(choices=DATA_TYPE_CHOICES)
+  data = models.TextField()
+  # other fields to be added... I'm not sure what the numrange fields are for?
+  class Meta:
+     verbose_name_plural="Data"  # don't pluralise to "Datas"
