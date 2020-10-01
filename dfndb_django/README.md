@@ -12,10 +12,10 @@ Then to inittialise the app:
 And to run the app on localhost:  
 `python3 ./manage.py runserver` # Then go to http://localhost:8000/admin and log in
 
-There will be just user and group tables defined by default, but we can add more to (dfndb/models.py)[models.py] as per the Django documentation
+There will be just user and group tables defined by default, but we can add more to [models.py](dfndb/models.py) as per the Django documentation
 
 With a few models added to models.py (and registered in admin.py) we now have something that looks like this:
-!(doc/Screenshot_20201001_112241.png)
+![](doc/Screenshot_20201001_112241.png)
 
 The admin interface provides basic CRUD functionality, auto-generated from the models.py definitions.  
 Later, we can add custom views for doing this in a more user-friendly way.
